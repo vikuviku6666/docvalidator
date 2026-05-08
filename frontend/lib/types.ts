@@ -42,8 +42,12 @@ export interface ValidationProgress {
 export interface ValidationReport {
   id: string;
   generatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  durationMs: number | null;
   summary: ReportSummary;
-  discrepancies: Discrepancy[];
+  validationResults: ValidationResult[];
+  allDiscrepancies: Discrepancy[];
   recommendations: Recommendation[];
 }
 
@@ -51,30 +55,62 @@ export interface ReportSummary {
   totalTests: number;
   passedTests: number;
   failedTests: number;
+  skippedTests: number | null;
   totalDiscrepancies: number;
   criticalIssues: number;
   highIssues: number;
   mediumIssues: number;
   lowIssues: number;
+  infoIssues: number;
+  passRate: number;
+  averageResponseTimeMs: number | null;
+  endpointsTested: number | null;
 }
 
 export interface Discrepancy {
   id: string;
+  testCaseId: string;
   type: string;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  endpoint: string;
-  method: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  title: string | null;
+  endpointPath: string;
   description: string;
-  documentedBehavior: string;
-  actualBehavior: string;
-  suggestion: string;
+  documented: string | null;
+  actual: string | null;
+  recommendation: string | null;
+  suggestedFix: string | null;
+  detectedAt: string | null;
+  detectedBy: string | null;
 }
 
 export interface Recommendation {
   id: string;
   title: string;
   description: string;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  affectedEndpoints: string[];
+  estimatedEffort: string;
+  priority: number;
+}
+
+export interface ValidationResult {
+  id: string;
+  testCaseId: string;
+  passed: boolean;
+  validatedAt: string;
+  discrepancies: Discrepancy[];
+  validatorAgent: string;
+  metrics: ValidationMetrics | null;
+}
+
+export interface ValidationMetrics {
+  responseTimeMs: number | null;
+  statusCodeMatch: number | null;
+  schemaMatchPercentage: number | null;
+  headerMatchCount: number | null;
+  totalChecks: number | null;
+  passedChecks: number | null;
+  failedChecks: number | null;
 }
 
 // ─── Validation Request ───────────────────────────────────────────────────────

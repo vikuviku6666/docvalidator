@@ -194,7 +194,7 @@ export default function DashboardPage() {
                       {run.passed}
                     </td>
                     <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{run.total}</td>
-                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
+                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400" suppressHydrationWarning>
                       {new Date(run.startedAt).toLocaleString()}
                     </td>
                   </tr>

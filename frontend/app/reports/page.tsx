@@ -12,11 +12,13 @@ import {
   ChevronUp,
   PlayCircle,
   Loader2,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
-import { getValidationProgress, getReportJson, getReportMarkdown } from '@/lib/api';
-import type { ValidationProgress } from '@/lib/types';
+import { getValidationProgress, getReportJson, getReportMarkdown, getLatestReport } from '@/lib/api';
+import type { Discrepancy, ValidationProgress, ValidationReport } from '@/lib/types';
 
-type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
 const SEVERITY_CONFIG: Record<
   Severity,
@@ -46,6 +48,12 @@ const SEVERITY_CONFIG: Record<
     color: 'text-blue-600 dark:text-blue-400',
     bg: 'bg-blue-50 dark:bg-blue-900/20',
   },
+  INFO: {
+    label: 'Info',
+    icon: Info,
+    color: 'text-gray-600 dark:text-gray-400',
+    bg: 'bg-gray-50 dark:bg-gray-800',
+  },
 };
 
 function SeverityBadge({ severity }: { severity: Severity }) {
@@ -59,18 +67,10 @@ function SeverityBadge({ severity }: { severity: Severity }) {
   );
 }
 
-interface DiscrepancyItem {
-  id: string;
-  type?: string;
-  severity: Severity;
-  endpoint?: string;
-  method?: string;
-  description?: string;
-  suggestion?: string;
-}
-
-function DiscrepancyRow({ item }: { item: DiscrepancyItem }) {
+function DiscrepancyRow({ item }: { item: Discrepancy }) {
   const [open, setOpen] = useState(false);
+  const suggestion = item.suggestedFix ?? item.recommendation;
+
   return (
     <div className="border-b border-gray-100 last:border-0 dark:border-gray-800">
       <button
@@ -82,10 +82,10 @@ function DiscrepancyRow({ item }: { item: DiscrepancyItem }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {item.type ?? 'Issue'}
+            {item.title ?? item.type?.replaceAll('_', ' ') ?? 'Issue'}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {item.method} {item.endpoint}
+            {item.endpointPath}
           </p>
         </div>
         {open ? (
@@ -99,12 +99,34 @@ function DiscrepancyRow({ item }: { item: DiscrepancyItem }) {
           {item.description && (
             <p className="mb-3 text-sm text-gray-700 dark:text-gray-300">{item.description}</p>
           )}
-          {item.suggestion && (
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            {item.documented && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                  Expected
+                </p>
+                <p className="mt-1 rounded-md bg-white p-3 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                  {item.documented}
+                </p>
+              </div>
+            )}
+            {item.actual && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                  Actual
+                </p>
+                <p className="mt-1 rounded-md bg-white p-3 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                  {item.actual}
+                </p>
+              </div>
+            )}
+          </div>
+          {suggestion && (
             <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-900/20">
               <p className="text-xs font-semibold text-green-700 dark:text-green-400">
-                💡 AI Suggestion
+                Suggestion
               </p>
-              <p className="mt-1 text-sm text-green-800 dark:text-green-300">{item.suggestion}</p>
+              <p className="mt-1 text-sm text-green-800 dark:text-green-300">{suggestion}</p>
             </div>
           )}
         </div>
@@ -118,9 +140,15 @@ export default function ReportsPage() {
     queryKey: ['validation-progress'],
     queryFn: getValidationProgress,
   });
+  const { data: report, isLoading: isReportLoading } = useQuery<ValidationReport | null>({
+    queryKey: ['latest-report'],
+    queryFn: getLatestReport,
+    refetchInterval: progress?.status && progress.status !== 'COMPLETED' ? 5_000 : false,
+  });
 
   const downloadJson = async () => {
-    const text = await getReportJson();
+    const data = await getReportJson();
+    const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
     const blob = new Blob([text], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -141,7 +169,7 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading) {
+  if (isLoading || isReportLoading) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="h-8 w-8 animate-spin text-brand" />
@@ -149,7 +177,11 @@ export default function ReportsPage() {
     );
   }
 
-  const hasReport = progress?.status === 'COMPLETED';
+  const hasReport = Boolean(report);
+  const summary = report?.summary;
+  const discrepancies = report?.allDiscrepancies ?? [];
+  const recommendations = report?.recommendations ?? [];
+  const validationResults = report?.validationResults ?? [];
 
   return (
     <div className="space-y-8">
@@ -203,14 +235,12 @@ export default function ReportsPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {(
               [
-                { label: 'Tests Run', value: progress.executedTests ?? 0, color: 'text-gray-900 dark:text-white' },
-                { label: 'Passed', value: progress.passedTests ?? 0, color: 'text-green-600 dark:text-green-400' },
-                { label: 'Failed', value: progress.failedTests ?? 0, color: 'text-red-600 dark:text-red-400' },
+                { label: 'Tests Run', value: summary?.totalTests ?? 0, color: 'text-gray-900 dark:text-white' },
+                { label: 'Passed', value: summary?.passedTests ?? 0, color: 'text-green-600 dark:text-green-400' },
+                { label: 'Failed', value: summary?.failedTests ?? 0, color: 'text-red-600 dark:text-red-400' },
                 {
                   label: 'Pass Rate',
-                  value: progress.executedTests
-                    ? `${Math.round((progress.passedTests / progress.executedTests) * 100)}%`
-                    : '—',
+          value: `${Math.round(summary?.passRate ?? (summary?.totalTests ? (summary.passedTests / summary.totalTests) * 100 : 0))}%`,
                   color: 'text-brand',
                 },
               ] as { label: string; value: string | number; color: string }[]
@@ -226,33 +256,133 @@ export default function ReportsPage() {
           </div>
 
           {/* Timing */}
-          {progress.startTime && (
+          {report?.generatedAt && (
             <div className="rounded-xl border border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex gap-8 text-sm">
+              <div className="flex flex-wrap gap-8 text-sm">
                 <div>
-                  <p className="text-gray-500 dark:text-gray-400">Started</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {new Date(progress.startTime).toLocaleString()}
+                  <p className="text-gray-500 dark:text-gray-400">Generated</p>
+                  <p className="font-medium text-gray-900 dark:text-white" suppressHydrationWarning>
+                    {new Date(report.generatedAt).toLocaleString()}
                   </p>
                 </div>
-                {progress.endTime && (
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">Completed</p>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {new Date(progress.endTime).toLocaleString()}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Discrepancies</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {summary?.totalDiscrepancies ?? 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Endpoints Tested</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {summary?.endpointsTested ?? 0}
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Download prompt */}
-          <div className="rounded-xl border border-brand/20 bg-brand/5 p-6">
-            <p className="font-medium text-brand">Report complete!</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Download the full report as JSON or Markdown using the buttons above.
-            </p>
+          <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+              <h3 className="font-semibold text-gray-900 dark:text-white">Discrepancies</h3>
+            </div>
+            {discrepancies.length === 0 ? (
+              <div className="flex items-center gap-2 px-6 py-8 text-sm text-green-600 dark:text-green-400">
+                <CheckCircle2 className="h-5 w-5" />
+                No discrepancies were found.
+              </div>
+            ) : (
+              discrepancies.map((item) => <DiscrepancyRow key={item.id} item={item} />)
+            )}
+          </div>
+
+          {recommendations.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+              <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+                <h3 className="font-semibold text-gray-900 dark:text-white">Recommendations</h3>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {recommendations.map((recommendation) => (
+                  <div key={recommendation.id} className="px-6 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {recommendation.title}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                          {recommendation.description}
+                        </p>
+                        {/* Affected endpoints: show list or 'All endpoints' when empty */}
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Affected:{' '}
+                          {recommendation.affectedEndpoints && recommendation.affectedEndpoints.length > 0
+                            ? recommendation.affectedEndpoints.join(', ')
+                            : 'All endpoints'}
+                        </p>
+                      </div>
+                      <SeverityBadge severity={recommendation.severity} />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        Priority {recommendation.priority}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        Effort {recommendation.estimatedEffort}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+              <h3 className="font-semibold text-gray-900 dark:text-white">Validation Results</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs font-medium uppercase text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  <tr>
+                    <th className="px-6 py-3">Result</th>
+                    <th className="px-6 py-3">Test Case</th>
+                    <th className="px-6 py-3">Checks</th>
+                    <th className="px-6 py-3">Validated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {validationResults.map((result) => (
+                    <tr key={result.id}>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            result.passed
+                              ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                          }`}
+                        >
+                          {result.passed ? (
+                            <CheckCircle2 className="h-3 w-3" />
+                          ) : (
+                            <XCircle className="h-3 w-3" />
+                          )}
+                          {result.passed ? 'Passed' : 'Failed'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-400">
+                        {result.testCaseId}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">
+                        {result.metrics?.passedChecks ?? 0}/{result.metrics?.totalChecks ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 dark:text-gray-400" suppressHydrationWarning>
+                        {new Date(result.validatedAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}

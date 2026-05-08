@@ -57,6 +57,13 @@ export const getReportMarkdown = async (): Promise<string> => {
   return res.text();
 };
 
+export const getLatestReport = async (): Promise<ValidationReport | null> => {
+  const res = await fetch('/api/v1/validation/report/latest', { cache: 'no-store' });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Report fetch failed: ${res.status}`);
+  return res.json() as Promise<ValidationReport>;
+};
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export const getHealth = () =>

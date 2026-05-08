@@ -130,14 +130,14 @@ export default function ProgressPage() {
           <div className="flex gap-8 text-sm">
             <div>
               <p className="text-gray-500 dark:text-gray-400">Started</p>
-              <p className="font-medium text-gray-900 dark:text-white">
+              <p className="font-medium text-gray-900 dark:text-white" suppressHydrationWarning>
                 {new Date(progress.startTime).toLocaleTimeString()}
               </p>
             </div>
             {progress.endTime && (
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Finished</p>
-                <p className="font-medium text-gray-900 dark:text-white">
+                <p className="font-medium text-gray-900 dark:text-white" suppressHydrationWarning>
                   {new Date(progress.endTime).toLocaleTimeString()}
                 </p>
               </div>
