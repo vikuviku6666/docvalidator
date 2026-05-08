@@ -1,0 +1,34 @@
+.DS_Store
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+
+# Java / Maven
+target/
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+logs/
+backend/logs/
+*.log
+
+# Node / Next.js
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/coverage/
+frontend/.vercel/
+frontend/next-env.d.ts
+*.tsbuildinfo
+
+# IDE
+.idea/
+*.iml
