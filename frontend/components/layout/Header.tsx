@@ -4,14 +4,22 @@ import { useState, useEffect } from 'react';
 import { Sun, Moon, ExternalLink } from 'lucide-react';
 
 export default function Header({ title }: { title?: string }) {
-  // Lazy initializer reads localStorage at mount (client only)
-  const [dark, setDark] = useState<boolean>(
-    () => typeof window !== 'undefined' && localStorage.getItem('theme') === 'dark',
-  );
+  // Start with null to avoid hydration mismatch
+  const [dark, setDark] = useState<boolean | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Read theme from localStorage after mount (client-side only)
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem('theme');
+    setDark(savedTheme === 'dark');
+  }, []);
 
   // Sync the <html> class whenever dark changes
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
+    if (dark !== null) {
+      document.documentElement.classList.toggle('dark', dark);
+    }
   }, [dark]);
 
   const toggleDark = () => {
@@ -47,8 +55,15 @@ export default function Header({ title }: { title?: string }) {
           onClick={toggleDark}
           className="rounded-md p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
           aria-label="Toggle dark mode"
+          suppressHydrationWarning
         >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {!mounted || dark === null ? (
+            <Moon className="h-4 w-4" />
+          ) : dark ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
         </button>
       </div>
     </header>

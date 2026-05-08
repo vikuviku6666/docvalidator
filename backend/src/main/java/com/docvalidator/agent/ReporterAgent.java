@@ -91,6 +91,23 @@ public class ReporterAgent {
                                 .flatMap(r -> r.getDiscrepancies().stream())
                                 .collect(Collectors.groupingBy(Discrepancy::getSeverity, Collectors.counting()));
 
+                // Calculate unique endpoints tested from test case IDs
+                int endpointsTested = (int) results.stream()
+                                .map(ValidationResult::getTestCaseId)
+                                .distinct()
+                                .count();
+
+                // Calculate pass rate
+                double passRate = totalTests > 0 ? (passedTests * 100.0 / totalTests) : 0.0;
+
+                // Calculate average response time
+                Long avgResponseTime = (long) results.stream()
+                                .map(ValidationResult::getMetrics)
+                                .filter(m -> m != null && m.getResponseTimeMs() != null)
+                                .mapToLong(m -> m.getResponseTimeMs())
+                                .average()
+                                .orElse(0.0);
+
                 return ValidationReport.Summary.builder()
                                 .totalTests(totalTests)
                                 .passedTests(passedTests)
@@ -101,6 +118,9 @@ public class ReporterAgent {
                                 .mediumIssues(discrepanciesBySeverity.getOrDefault(Discrepancy.Severity.MEDIUM, 0L))
                                 .lowIssues(discrepanciesBySeverity.getOrDefault(Discrepancy.Severity.LOW, 0L))
                                 .infoIssues(discrepanciesBySeverity.getOrDefault(Discrepancy.Severity.INFO, 0L))
+                                .passRate(passRate)
+                                .averageResponseTimeMs(avgResponseTime)
+                                .endpointsTested(endpointsTested)
                                 .build();
         }
 

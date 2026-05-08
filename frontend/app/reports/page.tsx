@@ -73,9 +73,12 @@ function DiscrepancyRow({ item }: { item: Discrepancy }) {
 
   return (
     <div className="border-b border-gray-100 last:border-0 dark:border-gray-800">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start gap-4 px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((o) => !o); } }}
+        className="flex w-full cursor-pointer items-start gap-4 px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
       >
         <div className="mt-0.5 shrink-0">
           <SeverityBadge severity={item.severity} />
@@ -93,7 +96,7 @@ function DiscrepancyRow({ item }: { item: Discrepancy }) {
         ) : (
           <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
         )}
-      </button>
+      </div>
       {open && (
         <div className="border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-800/30">
           {item.description && (
@@ -304,12 +307,14 @@ export default function ReportsPage() {
                 {recommendations.map((recommendation) => (
                   <div key={recommendation.id} className="px-6 py-4">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-gray-900 dark:text-white">
                           {recommendation.title}
                         </p>
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                          {recommendation.description}
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
+                          {recommendation.description === '[]' || !recommendation.description
+                            ? 'Configure an OpenAI or OpenRouter API key in application.yml to get AI-generated recommendations.'
+                            : recommendation.description}
                         </p>
                         {/* Affected endpoints: show list or 'All endpoints' when empty */}
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
@@ -319,7 +324,9 @@ export default function ReportsPage() {
                             : 'All endpoints'}
                         </p>
                       </div>
-                      <SeverityBadge severity={recommendation.severity} />
+                      <div className="shrink-0">
+                        <SeverityBadge severity={recommendation.severity} />
+                      </div>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
