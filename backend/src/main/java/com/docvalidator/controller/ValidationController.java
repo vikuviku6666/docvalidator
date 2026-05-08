@@ -99,6 +99,20 @@ public class ValidationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    /**
+     * Get the latest completed validation report
+     */
+    @GetMapping("/report/latest")
+    public ResponseEntity<ValidationReport> getLatestReport() {
+        ValidationReport report = orchestrator.getLatestReport();
+
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(report);
+    }
     
     /**
      * Export report as JSON
@@ -106,14 +120,13 @@ public class ValidationController {
     @GetMapping(value = "/report/json", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> exportReportJson() {
         try {
-            ValidationOrchestrator.ValidationProgress progress = orchestrator.getProgress();
+            ValidationReport report = orchestrator.getLatestReport();
             
-            if (progress == null || !progress.getStatus().equals("COMPLETED")) {
-                return ResponseEntity.badRequest().build();
+            if (report == null) {
+                return ResponseEntity.notFound().build();
             }
             
-            // Note: In production, you'd store the report and retrieve it here
-            return ResponseEntity.ok("{}");
+            return ResponseEntity.ok(reporterAgent.exportToJson(report));
             
         } catch (Exception e) {
             log.error("Error exporting report", e);
@@ -127,14 +140,13 @@ public class ValidationController {
     @GetMapping(value = "/report/markdown", produces = MediaType.TEXT_MARKDOWN_VALUE)
     public ResponseEntity<String> exportReportMarkdown() {
         try {
-            ValidationOrchestrator.ValidationProgress progress = orchestrator.getProgress();
+            ValidationReport report = orchestrator.getLatestReport();
             
-            if (progress == null || !progress.getStatus().equals("COMPLETED")) {
-                return ResponseEntity.badRequest().build();
+            if (report == null) {
+                return ResponseEntity.notFound().build();
             }
             
-            // Note: In production, you'd store the report and retrieve it here
-            return ResponseEntity.ok("# Report");
+            return ResponseEntity.ok(reporterAgent.exportToMarkdown(report));
             
         } catch (Exception e) {
             log.error("Error exporting report", e);

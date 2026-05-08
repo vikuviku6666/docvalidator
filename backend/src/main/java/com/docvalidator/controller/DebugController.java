@@ -55,12 +55,14 @@ public class DebugController {
         configStatus.put("ai.provider", config.getAi().getProvider());
         configStatus.put("ai.openai.apiKey", maskKey(config.getAi().getOpenai().getApiKey()));
         configStatus.put("ai.openai.model", config.getAi().getOpenai().getModel());
+        configStatus.put("ai.openrouter.apiKey", maskKey(config.getAi().getOpenrouter().getApiKey()));
+        configStatus.put("ai.openrouter.model", config.getAi().getOpenrouter().getModel());
+        configStatus.put("ai.openrouter.baseUrl", config.getAi().getOpenrouter().getBaseUrl());
         configStatus.put("authentication.spotify.clientId", maskKey(config.getAuthentication().getSpotify().getClientId()));
         configStatus.put("authentication.spotify.tokenUrl", config.getAuthentication().getSpotify().getTokenUrl());
         
         // Check if keys are set
-        boolean openrouterKeySet = config.getAi().getOpenai().getApiKey() != null && 
-                                   !config.getAi().getOpenai().getApiKey().isEmpty();
+        boolean openrouterKeySet = !isPlaceholder(config.getAi().getOpenrouter().getApiKey());
         boolean spotifyClientIdSet = config.getAuthentication().getSpotify().getClientId() != null && 
                                      !config.getAuthentication().getSpotify().getClientId().isEmpty();
         boolean spotifyClientSecretSet = config.getAuthentication().getSpotify().getClientSecret() != null && 

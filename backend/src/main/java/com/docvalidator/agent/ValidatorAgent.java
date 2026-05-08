@@ -4,10 +4,6 @@ import com.docvalidator.config.DocValidatorConfig;
 import com.docvalidator.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.theokanning.openai.completion.chat.ChatCompletionRequest;
-import com.theokanning.openai.completion.chat.ChatMessage;
-import com.theokanning.openai.completion.chat.ChatMessageRole;
-import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -23,24 +19,13 @@ import java.util.*;
 public class ValidatorAgent {
     
     private final DocValidatorConfig config;
-    private OpenAiService openAiService; // null when provider != openai or key is placeholder
+    private final AiChatClient aiChatClient;
     private final ObjectMapper objectMapper;
 
-    public ValidatorAgent(DocValidatorConfig config) {
+    public ValidatorAgent(DocValidatorConfig config, AiChatClient aiChatClient) {
         this.config = config;
+        this.aiChatClient = aiChatClient;
         this.objectMapper = new ObjectMapper();
-
-        String provider = config.getAi().getProvider();
-        String apiKey = config.getAi().getOpenai().getApiKey();
-        boolean realKey = apiKey != null && !apiKey.isBlank()
-                && !apiKey.startsWith("your_") && !apiKey.equals("sk-placeholder");
-        if ("openai".equalsIgnoreCase(provider) && realKey) {
-            this.openAiService = new OpenAiService(apiKey);
-            log.info("OpenAI service initialized for validation");
-        } else {
-            this.openAiService = null;
-            log.info("OpenAI service skipped (provider={}, key configured={}). AI analysis disabled.", provider, realKey);
-        }
     }
     
     /**
@@ -309,32 +294,16 @@ public class ValidatorAgent {
     }
     
     /**
-     * Call OpenAI for semantic analysis — returns "[]" if service is not configured
+     * Call configured AI provider for semantic analysis — returns "[]" if service is not configured
      */
     private String callOpenAI(String prompt) {
-        if (openAiService == null) {
-            log.debug("OpenAI service not configured, skipping semantic analysis");
+        if (!aiChatClient.isConfigured()) {
+            log.debug("AI provider not configured, skipping semantic analysis");
             return "[]";
         }
-        try {
-            ChatCompletionRequest request = ChatCompletionRequest.builder()
-                    .model(config.getAi().getOpenai().getModel())
-                    .messages(Arrays.asList(
-                            new ChatMessage(ChatMessageRole.SYSTEM.value(),
-                                    "You are an expert API validator. Analyze responses for semantic discrepancies."),
-                            new ChatMessage(ChatMessageRole.USER.value(), prompt)
-                    ))
-                    .temperature(config.getAi().getOpenai().getTemperature())
-                    .maxTokens(config.getAi().getOpenai().getMaxTokens())
-                    .build();
-            
-            return openAiService.createChatCompletion(request)
-                    .getChoices().get(0).getMessage().getContent();
-                    
-        } catch (Exception e) {
-            log.error("Error calling OpenAI API", e);
-            return "[]";
-        }
+        return aiChatClient.complete(
+                "You are an expert API validator. Analyze responses for semantic discrepancies.",
+                prompt);
     }
     
     /**

@@ -50,6 +50,7 @@ public class DocValidatorConfig {
     public static class Ai {
         private String provider;
         private OpenAi openai = new OpenAi();
+        private OpenRouter openrouter = new OpenRouter();
         private Claude claude = new Claude();
 
         @Data
@@ -58,6 +59,17 @@ public class DocValidatorConfig {
             private String model;
             private Double temperature;
             private Integer maxTokens;
+        }
+
+        @Data
+        public static class OpenRouter {
+            private String apiKey;
+            private String baseUrl;
+            private String model;
+            private Double temperature;
+            private Integer maxTokens;
+            private String siteUrl;
+            private String appName;
         }
 
         @Data

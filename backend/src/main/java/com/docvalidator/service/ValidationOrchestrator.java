@@ -34,6 +34,7 @@ public class ValidationOrchestrator {
     private final ValidationHistoryService historyService;
     
     private ValidationProgress currentProgress;
+    private ValidationReport latestReport;
     
     public ValidationOrchestrator(OpenApiParser openApiParser,
                                  TestGeneratorAgent testGeneratorAgent,
@@ -134,6 +135,11 @@ public class ValidationOrchestrator {
             currentProgress.setStatus("COMPLETED");
             currentProgress.setEndTime(LocalDateTime.now());
             currentProgress.setProgress(100.0);
+            report.setTestCases(executionResult.testCases());
+            report.setStartedAt(executionResult.startTime());
+            report.setCompletedAt(executionResult.endTime());
+            report.setDurationMs(executionResult.durationMs());
+            latestReport = report;
             historyService.recordRun(
                     buildRunName(openApiUrl, endpointPaths),
                     currentProgress.getExecutedTests(),
@@ -182,6 +188,13 @@ public class ValidationOrchestrator {
      */
     public ValidationProgress getProgress() {
         return currentProgress;
+    }
+
+    /**
+     * Get the most recently completed validation report.
+     */
+    public ValidationReport getLatestReport() {
+        return latestReport;
     }
     
     /**

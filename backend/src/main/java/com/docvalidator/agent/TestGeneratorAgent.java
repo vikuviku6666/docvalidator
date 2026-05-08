@@ -4,10 +4,6 @@ import com.docvalidator.config.DocValidatorConfig;
 import com.docvalidator.mcp.McpClient;
 import com.docvalidator.model.ApiEndpoint;
 import com.docvalidator.model.TestCase;
-import com.theokanning.openai.completion.chat.ChatCompletionRequest;
-import com.theokanning.openai.completion.chat.ChatMessage;
-import com.theokanning.openai.completion.chat.ChatMessageRole;
-import com.theokanning.openai.service.OpenAiService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -30,24 +26,12 @@ public class TestGeneratorAgent {
     
     private final DocValidatorConfig config;
     private final McpClient mcpClient;
-    private OpenAiService openAiService; // initialized lazily only when provider=openai with a real key
+    private final AiChatClient aiChatClient;
 
-    public TestGeneratorAgent(DocValidatorConfig config, McpClient mcpClient) {
+    public TestGeneratorAgent(DocValidatorConfig config, McpClient mcpClient, AiChatClient aiChatClient) {
         this.config = config;
         this.mcpClient = mcpClient;
-
-        // Only initialize OpenAI client when the provider is "openai" and a real key is set
-        String provider = config.getAi().getProvider();
-        String apiKey = config.getAi().getOpenai().getApiKey();
-        boolean realKey = apiKey != null && !apiKey.isBlank()
-                && !apiKey.startsWith("your_") && !apiKey.equals("sk-placeholder");
-        if ("openai".equalsIgnoreCase(provider) && realKey) {
-            this.openAiService = new OpenAiService(apiKey);
-            log.info("OpenAI service initialized for test generation");
-        } else {
-            this.openAiService = null;
-            log.info("OpenAI service skipped (provider={}, key configured={}). AI test generation disabled.", provider, realKey);
-        }
+        this.aiChatClient = aiChatClient;
     }
     
     /**
@@ -171,7 +155,7 @@ public class TestGeneratorAgent {
         tests.add(basicTest);
         
         // Use AI to generate additional positive scenarios
-        if (config.getAi().getProvider().equals("openai")) {
+        if (aiChatClient.isConfigured()) {
             tests.addAll(generateAiPositiveTests(endpoint));
         }
         
@@ -252,7 +236,7 @@ public class TestGeneratorAgent {
         }
         
         // Use AI to generate more negative scenarios
-        if (config.getAi().getProvider().equals("openai")) {
+        if (aiChatClient.isConfigured()) {
             tests.addAll(generateAiNegativeTests(endpoint));
         }
         
@@ -357,32 +341,16 @@ public class TestGeneratorAgent {
     }
     
     /**
-     * Call OpenAI API — returns "[]" if service is not configured
+     * Call configured AI provider — returns "[]" if service is not configured
      */
     private String callOpenAI(String prompt) {
-        if (openAiService == null) {
-            log.debug("OpenAI service not configured, skipping AI test generation");
+        if (!aiChatClient.isConfigured()) {
+            log.debug("AI provider not configured, skipping AI test generation");
             return "[]";
         }
-        try {
-            ChatCompletionRequest request = ChatCompletionRequest.builder()
-                    .model(config.getAi().getOpenai().getModel())
-                    .messages(Arrays.asList(
-                            new ChatMessage(ChatMessageRole.SYSTEM.value(), 
-                                    "You are an expert API testing engineer. Generate comprehensive test scenarios."),
-                            new ChatMessage(ChatMessageRole.USER.value(), prompt)
-                    ))
-                    .temperature(config.getAi().getOpenai().getTemperature())
-                    .maxTokens(config.getAi().getOpenai().getMaxTokens())
-                    .build();
-            
-            return openAiService.createChatCompletion(request)
-                    .getChoices().get(0).getMessage().getContent();
-                    
-        } catch (Exception e) {
-            log.error("Error calling OpenAI API", e);
-            return "[]";
-        }
+        return aiChatClient.complete(
+                "You are an expert API testing engineer. Generate comprehensive test scenarios.",
+                prompt);
     }
     
     /**

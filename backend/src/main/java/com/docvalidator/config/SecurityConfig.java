@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,8 +45,9 @@ public class SecurityConfig {
                 .permitAll()
             )
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/h2-console/**")  // Disable CSRF for H2 console
-                .ignoringRequestMatchers("/api/**")  // Disable CSRF for API endpoints
+                .ignoringRequestMatchers(
+                        new AntPathRequestMatcher("/api/**"),
+                        new AntPathRequestMatcher("/h2-console/**"))
             )
             .headers(headers -> headers
                 .frameOptions(frame -> frame.sameOrigin())  // Allow H2 console frames
@@ -76,7 +78,13 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-                "http://localhost:3001"
+                "http://localhost:3001",
+                "http://localhost:3002",
+                "http://localhost:3003",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
+                "http://127.0.0.1:3002",
+                "http://127.0.0.1:3003"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
