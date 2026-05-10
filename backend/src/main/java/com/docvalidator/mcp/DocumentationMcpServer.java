@@ -236,13 +236,30 @@ public class DocumentationMcpServer {
         
         try {
             if (cachedOpenApiSpec == null) {
-                cachedOpenApiSpec = new OpenAPIV3Parser().read(config.getTargetApi().getOpenapiSpecUrl());
+                try {
+                    cachedOpenApiSpec = new OpenAPIV3Parser().read(config.getTargetApi().getOpenapiSpecUrl());
+                    if (cachedOpenApiSpec == null) {
+                        log.debug("OpenAPI spec URL returned HTML instead of YAML/JSON. MCP auth requirements will be skipped. Validation will continue normally.");
+                        Map<String, Object> result = new HashMap<>();
+                        result.put("success", false);
+                        result.put("error", "OpenAPI spec URL returned invalid content (HTML instead of YAML/JSON)");
+                        result.put("securitySchemes", Map.of());
+                        return result;
+                    }
+                } catch (Exception e) {
+                    log.debug("Could not parse OpenAPI spec from URL. MCP auth requirements will be skipped. Validation will continue normally.");
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", false);
+                    result.put("error", "OpenAPI spec parsing failed - validation will continue without MCP context");
+                    result.put("securitySchemes", Map.of());
+                    return result;
+                }
             }
             
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             
-            if (cachedOpenApiSpec.getComponents() != null && 
+            if (cachedOpenApiSpec != null && cachedOpenApiSpec.getComponents() != null &&
                 cachedOpenApiSpec.getComponents().getSecuritySchemes() != null) {
                 result.put("securitySchemes", cachedOpenApiSpec.getComponents().getSecuritySchemes());
             } else {

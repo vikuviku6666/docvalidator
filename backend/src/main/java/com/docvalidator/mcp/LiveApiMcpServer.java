@@ -104,7 +104,7 @@ public class LiveApiMcpServer {
             return result;
             
         } catch (Exception e) {
-            log.error("Error executing API call", e);
+            log.debug("MCP API call failed: {}", e.getMessage());
             return Map.of(
                 "success", false,
                 "error", e.getMessage()

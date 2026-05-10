@@ -65,7 +65,7 @@ export default function DashboardPage() {
   } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: getDashboardStats,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000, // Reduced from 15s to 30s for better performance
   });
 
   const {
@@ -75,7 +75,7 @@ export default function DashboardPage() {
   } = useQuery<ValidationRun[]>({
     queryKey: ['validation-history'],
     queryFn: getValidationHistory,
-    refetchInterval: 15_000,
+    refetchInterval: 30_000, // Reduced from 15s to 30s for better performance
   });
 
   const passRate =

@@ -121,7 +121,7 @@ public class TestGeneratorAgent {
             }
             
         } catch (Exception e) {
-            log.warn("Error gathering MCP context: {}", e.getMessage());
+            log.debug("MCP context gathering skipped: {}", e.getMessage());
         }
         
         return context;

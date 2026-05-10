@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Orchestrates the entire validation workflow:
@@ -83,28 +85,60 @@ public class ValidationOrchestrator {
             log.info("Parsed {} endpoints", endpoints.size());
             currentProgress.setTotalEndpoints(endpoints.size());
             
-            // Step 2: Generate test cases
-            log.info("Step 2: Generating test cases...");
+            // Step 2: Generate test cases (parallel processing for speed)
+            log.info("Step 2: Generating test cases in parallel...");
             currentProgress.setStatus("GENERATING_TESTS");
             currentProgress.setCurrentStep("Generating test cases");
             
             List<TestCase> allTestCases = new ArrayList<>();
             AtomicInteger processedEndpoints = new AtomicInteger(0);
             
-            for (ApiEndpoint endpoint : endpoints) {
-                log.debug("Generating tests for: {} {}", endpoint.getMethod(), endpoint.getPath());
+            // Create thread pool for parallel processing (use available processors)
+            int parallelism = Math.min(Runtime.getRuntime().availableProcessors(), endpoints.size());
+            ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+            
+            // Make endpoints size final for lambda
+            final int totalEndpoints = endpoints.size();
+            
+            try {
+                // Submit all endpoint test generation tasks
+                List<Future<List<TestCase>>> futures = endpoints.stream()
+                    .map(endpoint -> executor.submit(() -> {
+                        log.debug("Generating tests for: {} {}", endpoint.getMethod(), endpoint.getPath());
+                        
+                        List<TestCase> testCases = testGeneratorAgent.generateTestCases(endpoint);
+                        
+                        int processed = processedEndpoints.incrementAndGet();
+                        currentProgress.setProcessedEndpoints(processed);
+                        currentProgress.setProgress((processed * 100.0) / totalEndpoints);
+                        
+                        log.debug("Generated {} tests for endpoint", testCases.size());
+                        return testCases;
+                    }))
+                    .collect(Collectors.toList());
                 
-                List<TestCase> testCases = testGeneratorAgent.generateTestCases(endpoint);
-                allTestCases.addAll(testCases);
+                // Collect all results
+                for (Future<List<TestCase>> future : futures) {
+                    try {
+                        allTestCases.addAll(future.get());
+                    } catch (ExecutionException e) {
+                        log.error("Error generating tests for endpoint", e.getCause());
+                    }
+                }
                 
-                int processed = processedEndpoints.incrementAndGet();
-                currentProgress.setProcessedEndpoints(processed);
-                currentProgress.setProgress((processed * 100.0) / endpoints.size());
-                
-                log.debug("Generated {} tests for endpoint", testCases.size());
+            } finally {
+                executor.shutdown();
+                try {
+                    if (!executor.awaitTermination(5, TimeUnit.MINUTES)) {
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
             }
             
-            log.info("Generated {} total test cases", allTestCases.size());
+            log.info("Generated {} total test cases using {} parallel threads", allTestCases.size(), parallelism);
             currentProgress.setTotalTests(allTestCases.size());
             
             // Step 3: Execute tests

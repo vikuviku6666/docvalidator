@@ -121,9 +121,16 @@ docvalidator:
 logging:
   level:
     root: INFO
-    com.docvalidator: DEBUG
+    com.docvalidator: INFO
     org.springframework.web: INFO
-    io.swagger: WARN
+    io.swagger: OFF
+    io.swagger.parser: OFF
+    io.swagger.v3.parser: OFF
+    io.swagger.parser.SwaggerCompatConverter: OFF
+    io.swagger.v3.parser.converter.SwaggerConverter: OFF
+    com.fasterxml.jackson: ERROR
+    io.restassured: ERROR
+    org.apache.http: ERROR
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

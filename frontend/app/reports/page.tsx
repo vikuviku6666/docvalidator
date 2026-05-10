@@ -146,7 +146,7 @@ export default function ReportsPage() {
   const { data: report, isLoading: isReportLoading } = useQuery<ValidationReport | null>({
     queryKey: ['latest-report'],
     queryFn: getLatestReport,
-    refetchInterval: progress?.status && progress.status !== 'COMPLETED' ? 5_000 : false,
+    refetchInterval: progress?.status && progress.status !== 'COMPLETED' ? 10_000 : false, // Reduced from 5s to 10s for better performance
   });
 
   const downloadJson = async () => {

@@ -183,7 +183,7 @@ public class McpClient {
         try {
             return liveApiMcp.executeApiCall(method, path, headers, queryParams, body);
         } catch (Exception e) {
-            log.error("Error executing API call to {} {}", method, path, e);
+            log.debug("MCP API call to {} {} failed: {}", method, path, e.getMessage());
             return Map.of("success", false, "error", e.getMessage());
         }
     }
